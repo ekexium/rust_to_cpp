@@ -1,0 +1,19 @@
+[package]
+name = "client-c"
+version = "0.1.0"
+authors = ["venslu <1262612838@qq.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "tikv_client"
+crate-type = ["staticlib"]
+
+[dependencies]
+anyhow = "1.0"
+cxx = "1.0.12"
+futures = "0.3"
+tikv-client = { git = "https://github.com/tikv/client-rust.git", branch = "master" }
+
+[build-dependencies]
+cxx-build = "1.0.12"
