@@ -1,4 +1,4 @@
-#include "../include/tikv_client.h"
+#include "tikv_client.h"
 
 using namespace std;
 using ::rust::cxxbridge1::Box;
