@@ -100,8 +100,11 @@ bool Transaction::key_may_exist(const std::string &key) {
     return true;
 }
 
-void Transaction::put(const std::string &key, const std::string &value) {
+bool Transaction::put(const std::string &key, const std::string &value) {
+    try {
     transaction_put(*_txn, key, value);
+}catch{
+}
 }
 
 void Transaction::batch_put(const std::vector<KvPair> &kvs) {

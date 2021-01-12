@@ -4,7 +4,7 @@
 int main() {
     auto client = tikv_client::TransactionClient({"127.0.0.1:2379"});
     auto txn = client.begin();
-    //txn.put("k1", "v2");
+    txn.put("k1", "v2");
     auto val = txn.get("k1");
     if (val) {
         std::cout << "get key k1:" << *val << std::endl;
@@ -15,5 +15,7 @@ int main() {
     for (auto iter = kv_pairs.begin(); iter != kv_pairs.end(); ++iter) {
         std::cout << "scan:" << iter->key << ": " << iter->value << std::endl;
     }
+
+    txn.commit();
     return 0;
 }

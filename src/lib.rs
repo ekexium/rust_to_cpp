@@ -1,11 +1,11 @@
 use std::ops;
+use std::io::Error;
 
 use anyhow::Result;
 use cxx::{CxxString, CxxVector};
 use futures::executor::block_on;
-use tikv_client::{self};
 
-use ffi::*;
+use self::ffi::*;
 
 #[cxx::bridge]
 mod ffi {
@@ -102,6 +102,8 @@ struct Transaction {
 }
 
 fn transaction_client_new(pd_endpoints: &CxxVector<CxxString>) -> Result<Box<TransactionClient>> {
+    env_logger::init();
+
     let pd_endpoints = pd_endpoints
         .iter()
         .map(|str| str.to_str().map(ToOwned::to_owned))
@@ -214,7 +216,7 @@ fn transaction_scan_keys(
     Ok(keys)
 }
 
-fn transaction_put(transaction: &mut Transaction, key: &CxxString, val: &CxxString) -> Result<()> {
+fn transaction_put(transaction: &mut Transaction, key: &CxxString, val: &CxxString) -> Result<(), std::io::Error> {
     block_on(
         transaction
             .inner
@@ -242,12 +244,14 @@ fn to_bound_range(
     let start_bound = match start_bound {
         Bound::Included => ops::Bound::Included(start.as_bytes().to_vec()),
         Bound::Excluded => ops::Bound::Excluded(start.as_bytes().to_vec()),
-        _ => ops::Bound::Unbounded,
+        Bound::Unbounded => ops::Bound::Unbounded,
+        _ => panic!("unexpected bound"),
     };
     let end_bound = match end_bound {
         Bound::Included => ops::Bound::Included(end.as_bytes().to_vec()),
         Bound::Excluded => ops::Bound::Excluded(end.as_bytes().to_vec()),
-        _ => ops::Bound::Unbounded,
+        Bound::Unbounded => ops::Bound::Unbounded,
+        _ => panic!("unexpected bound"),
     };
     tikv_client::BoundRange::from((start_bound, end_bound))
 }
