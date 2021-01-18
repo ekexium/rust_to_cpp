@@ -24,6 +24,17 @@ Transaction TransactionClient::begin_pessimistic() {
 
 Transaction::Transaction(Box<tikv_client_glue::Transaction> txn) : _txn(std::move(txn)) {}
 
+
+bool Transaction::get(const std::string& key, std::string& value) {
+    auto val = transaction_get(*_txn, key);
+    if (val.is_none) {
+        return false;
+    }
+    value = std::string{val.value.begin(), val.value.end()};
+    return true;
+}
+
+/*
 std::optional<std::string> Transaction::get(const std::string &key) {
     auto val = transaction_get(*_txn, key);
     if (val.is_none) {
@@ -32,7 +43,18 @@ std::optional<std::string> Transaction::get(const std::string &key) {
         return std::string{val.value.begin(), val.value.end()};
     }
 }
+*/
 
+bool Transaction::get_for_update(const std::string& key, std::string& value) {
+    auto val = transaction_get_for_update(*_txn, key);
+    if (val.is_none) {
+        return false;
+    }
+    value = std::string{val.value.begin(), val.value.end()};
+    return true;
+}
+
+/*
 std::optional<std::string> Transaction::get_for_update(const std::string &key) {
     auto val = transaction_get_for_update(*_txn, key);
     if (val.is_none) {
@@ -41,8 +63,9 @@ std::optional<std::string> Transaction::get_for_update(const std::string &key) {
         return std::string{val.value.begin(), val.value.end()};
     }
 }
+*/
 
-std::vector<KvPair> Transaction::batch_get(const std::vector<std::string> &keys) {
+std::vector<KvPair> Transaction::batch_get(const std::vector<std::string>& keys) {
     auto kv_pairs = transaction_batch_get(*_txn, keys);
     std::vector<KvPair> result;
     result.reserve(kv_pairs.size());
@@ -55,7 +78,7 @@ std::vector<KvPair> Transaction::batch_get(const std::vector<std::string> &keys)
     return result;
 }
 
-std::vector<KvPair> Transaction::batch_get_for_update(const std::vector<std::string> &keys) {
+std::vector<KvPair> Transaction::batch_get_for_update(const std::vector<std::string>& keys) {
     auto kv_pairs = transaction_batch_get_for_update(*_txn, keys);
     std::vector<KvPair> result;
     result.reserve(kv_pairs.size());
@@ -69,7 +92,7 @@ std::vector<KvPair> Transaction::batch_get_for_update(const std::vector<std::str
 }
 
 
-std::vector<KvPair> Transaction::scan(const std::string &start, Bound start_bound, const std::string &end, Bound end_bound, std::uint32_t limit) {
+std::vector<KvPair> Transaction::scan(const std::string& start, Bound start_bound, const std::string& end, Bound end_bound, std::uint32_t limit) {
     auto kv_pairs = transaction_scan(*_txn, start, start_bound, end, end_bound, limit);
     std::vector<KvPair> result;
     result.reserve(kv_pairs.size());
@@ -82,7 +105,7 @@ std::vector<KvPair> Transaction::scan(const std::string &start, Bound start_boun
     return result;
 }
 
-std::vector<std::string> Transaction::scan_keys(const std::string &start, Bound start_bound, const std::string &end, Bound end_bound, std::uint32_t limit) {
+std::vector<std::string> Transaction::scan_keys(const std::string& start, Bound start_bound, const std::string& end, Bound end_bound, std::uint32_t limit) {
     auto keys = transaction_scan_keys(*_txn, start, start_bound, end, end_bound, limit);
     std::vector<std::string> result;
     result.reserve(keys.size());
@@ -92,7 +115,7 @@ std::vector<std::string> Transaction::scan_keys(const std::string &start, Bound 
     return result;
 }
 
-bool Transaction::key_may_exist(const std::string &key) {
+bool Transaction::key_may_exist(const std::string& key) {
     auto val = transaction_get_for_update(*_txn, key);
     if (val.is_none) {  // key is not exist
         return false;
@@ -100,36 +123,59 @@ bool Transaction::key_may_exist(const std::string &key) {
     return true;
 }
 
-bool Transaction::put(const std::string &key, const std::string &value) {
+bool Transaction::put(const std::string& key, const std::string& value) {
     try {
-    transaction_put(*_txn, key, value);
-}catch{
-}
+        transaction_put(*_txn, key, value);
+    } catch (const rust::Error& e) {
+        std::cout<<"put key: "<<key<<" is error, "<<e.what()<<std::endl;
+        return false;
+    }
+    return true;
 }
 
-void Transaction::batch_put(const std::vector<KvPair> &kvs) {
+bool Transaction::batch_put(const std::vector<KvPair>& kvs) {
     for (auto iter = kvs.begin(); iter != kvs.end(); ++iter) {
-        transaction_put(*_txn, iter->key, iter->value);
-    } 
+        try {
+            transaction_put(*_txn, iter->key, iter->value);
+        } catch (const rust::Error& e) {
+            std::cout<<"batch_put key: "<<iter->key<<" value: "<<iter->value<<" is error, "<<e.what()<<std::endl;
+            return false;
+        }
+    }
+    return true;
 }
 
-bool Transaction::merge(const std::string &key, const std::string &value) {
+bool Transaction::merge(const std::string& key, const std::string& value) {
     auto val = transaction_get_for_update(*_txn, key);
     if (val.is_none) {  // key is not exist
         return false;
     }
     std::string new_value = std::string{val.value.begin(), val.value.end()} + value;
-    transaction_put(*_txn, key, new_value);
-    return true; 
+    if (!transaction_put(*_txn, key, new_value)) {
+        return false;
+    } 
+    return true;
 }
 
 
-void Transaction::remove(const std::string &key) {
-    transaction_delete(*_txn, key);
+bool Transaction::remove(const std::string& key) {
+    try {
+        transaction_delete(*_txn, key);
+    } catch (const rust::Error& e) {
+        std::cout<<"remove key: "<<key<<" is error, "<<e.what()<<std::endl;
+        return false;
+    }
+    return true;
 }
 
-void Transaction::commit() {
-    transaction_commit(*_txn);
+bool Transaction::commit() {
+    try {
+        transaction_commit(*_txn);
+    } catch (const rust::Error& e) {
+        std::cout<<"commit is error, "<<e.what()<<std::endl;
+        return false;
+    }
+    return true;
 }
 
 }

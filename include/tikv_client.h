@@ -17,18 +17,19 @@ struct KvPair final {
 class Transaction {
 public:
     Transaction(::rust::cxxbridge1::Box<tikv_client_glue::Transaction> txn);
-    std::optional<std::string> get(const std::string &key);
-    std::optional<std::string> get_for_update(const std::string &key);
-    std::vector<KvPair> batch_get(const std::vector<std::string> &keys);
-    std::vector<KvPair> batch_get_for_update(const std::vector<std::string> &keys);
-    std::vector<KvPair> scan(const std::string &start, Bound start_bound, const std::string &end, Bound end_bound, std::uint32_t limit);
-    std::vector<std::string> scan_keys(const std::string &start, Bound start_bound, const std::string &end, Bound end_bound, std::uint32_t limit);
-    bool key_may_exist(const std::string &key); 
-    void put(const std::string &key, const std::string &value);
-    void batch_put(const std::vector<KvPair> &kvs);
-    bool merge(const std::string &key, const std::string &value);
-    void remove(const std::string &key);
-    void commit();
+    bool get(const std::string& key, std::string& value);
+    bool get_for_update(const std::string& key, std::string& value);
+    bool batch_get_for_update(const std::vector<std::string>& keys, std::vector<KvPair>& kvs);
+    std::vector<KvPair> batch_get(const std::vector<std::string>& keys);
+    std::vector<KvPair> batch_get_for_update(const std::vector<std::string>& keys);
+    std::vector<KvPair> scan(const std::string& start, Bound start_bound, const std::string& end, Bound end_bound, std::uint32_t limit);
+    std::vector<std::string> scan_keys(const std::string& start, Bound start_bound, const std::string& end, Bound end_bound, std::uint32_t limit);
+    bool key_may_exist(const std::string& key);
+    bool put(const std::string& key, const std::string& value);
+    bool batch_put(const std::vector<KvPair>& kvs);
+    bool merge(const std::string& key, const std::string& value);
+    bool remove(const std::string& key);
+    bool commit();
 private:
     ::rust::cxxbridge1::Box<tikv_client_glue::Transaction> _txn;
 };

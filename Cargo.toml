@@ -9,9 +9,8 @@ name = "tikv_client_rust"
 crate-type = ["staticlib"]
 
 [dependencies]
-anyhow = "1.0"
-cxx = "1.0.27"
+anyhow = "1"
+cxx = "=1.0.18"
 futures = "0.3"
 env_logger = "0.8"
-grpcio = { version = "0.6", features = ["openssl"] }
-tikv-client = { git = "https://github.com/tikv/client-rust.git", rev = "72ab9b3" }
+tikv-client = { git = "https://github.com/tikv/client-rust.git", rev = "89ac804" }

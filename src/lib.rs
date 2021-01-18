@@ -101,6 +101,12 @@ struct Transaction {
     inner: tikv_client::Transaction,
 }
 
+#[derive(Debug)]
+struct Error;
+
+impl std::error::Error for Error {}
+
+
 fn transaction_client_new(pd_endpoints: &CxxVector<CxxString>) -> Result<Box<TransactionClient>> {
     env_logger::init();
 
@@ -216,7 +222,7 @@ fn transaction_scan_keys(
     Ok(keys)
 }
 
-fn transaction_put(transaction: &mut Transaction, key: &CxxString, val: &CxxString) -> Result<(), std::io::Error> {
+fn transaction_put(transaction: &mut Transaction, key: &CxxString, val: &CxxString) -> Result<(), Error> {
     block_on(
         transaction
             .inner
@@ -225,12 +231,12 @@ fn transaction_put(transaction: &mut Transaction, key: &CxxString, val: &CxxStri
     Ok(())
 }
 
-fn transaction_delete(transaction: &mut Transaction, key: &CxxString) -> Result<()> {
+fn transaction_delete(transaction: &mut Transaction, key: &CxxString) -> Result<(), Error> {
     block_on(transaction.inner.delete(key.as_bytes().to_vec()))?;
     Ok(())
 }
 
-fn transaction_commit(transaction: &mut Transaction) -> Result<()> {
+fn transaction_commit(transaction: &mut Transaction) -> Result<(), Error> {
     block_on(transaction.inner.commit())?;
     Ok(())
 }
