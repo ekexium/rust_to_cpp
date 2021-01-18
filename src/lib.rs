@@ -1,5 +1,4 @@
 use std::ops;
-use std::io::Error;
 
 use anyhow::Result;
 use cxx::{CxxString, CxxVector};
@@ -56,10 +55,10 @@ mod ffi {
             keys: &CxxVector<CxxString>,
         ) -> Result<Vec<KvPair>>;
 
-        fn transaction_batch_get_for_update(
-            transaction: &mut Transaction,
-            keys: &CxxVector<CxxString>,
-        ) -> Result<Vec<KvPair>>;
+        // fn transaction_batch_get_for_update(
+        //     transaction: &mut Transaction,
+        //     keys: &CxxVector<CxxString>,
+        // ) -> Result<Vec<KvPair>>;
 
         fn transaction_scan(
             transaction: &mut Transaction,
@@ -101,12 +100,6 @@ struct Transaction {
     inner: tikv_client::Transaction,
 }
 
-#[derive(Debug)]
-struct Error;
-
-impl std::error::Error for Error {}
-
-
 fn transaction_client_new(pd_endpoints: &CxxVector<CxxString>) -> Result<Box<TransactionClient>> {
     env_logger::init();
 
@@ -122,7 +115,7 @@ fn transaction_client_new(pd_endpoints: &CxxVector<CxxString>) -> Result<Box<Tra
 
 fn transaction_client_begin(client: &TransactionClient) -> Result<Box<Transaction>> {
     Ok(Box::new(Transaction {
-        inner: block_on(client.inner.begin())?,
+        inner: block_on(client.inner.begin_optimistic())?,
     }))
 }
 
@@ -149,16 +142,12 @@ fn transaction_get_for_update(
     transaction: &mut Transaction,
     key: &CxxString,
 ) -> Result<OptionalValue> {
-    match block_on(transaction.inner.get_for_update(key.as_bytes().to_vec()))? {
-        Some(value) => Ok(OptionalValue {
-            is_none: false,
-            value,
-        }),
-        None => Ok(OptionalValue {
-            is_none: true,
-            value: Vec::new(),
-        }),
-    }
+    let value = block_on(transaction.inner.get_for_update(key.as_bytes().to_vec()))?;
+    // TODO: we cannot tell if it's empty value or non-existent. Fix it when rust client support it
+    Ok(OptionalValue {
+        is_none: false,
+        value,
+    })
 }
 
 fn transaction_batch_get(
@@ -175,19 +164,20 @@ fn transaction_batch_get(
     Ok(kv_pairs)
 }
 
-fn transaction_batch_get_for_update(
-    transaction: &mut Transaction,
-    keys: &CxxVector<CxxString>,
-) -> Result<Vec<KvPair>> {
-    let keys = keys.iter().map(|key| key.as_bytes().to_vec());
-    let kv_pairs = block_on(transaction.inner.batch_get_for_update(keys))?
-        .map(|tikv_client::KvPair(key, value)| KvPair {
-            key: key.into(),
-            value,
-        })
-        .collect();
-    Ok(kv_pairs)
-}
+// TODO: batch_get_for_udpate is currently disabled.
+// fn transaction_batch_get_for_update(
+//     transaction: &mut Transaction,
+//     keys: &CxxVector<CxxString>,
+// ) -> Result<Vec<KvPair>> {
+//     let keys = keys.iter().map(|key| key.as_bytes().to_vec());
+//     let kv_pairs = block_on(transaction.inner.batch_get_for_update(keys))?
+//         .map(|tikv_client::KvPair(key, value)| KvPair {
+//             key: key.into(),
+//             value,
+//         })
+//         .collect();
+//     Ok(kv_pairs)
+// }
 
 fn transaction_scan(
     transaction: &mut Transaction,
@@ -222,7 +212,7 @@ fn transaction_scan_keys(
     Ok(keys)
 }
 
-fn transaction_put(transaction: &mut Transaction, key: &CxxString, val: &CxxString) -> Result<(), Error> {
+fn transaction_put(transaction: &mut Transaction, key: &CxxString, val: &CxxString) -> Result<()> {
     block_on(
         transaction
             .inner
@@ -231,12 +221,12 @@ fn transaction_put(transaction: &mut Transaction, key: &CxxString, val: &CxxStri
     Ok(())
 }
 
-fn transaction_delete(transaction: &mut Transaction, key: &CxxString) -> Result<(), Error> {
+fn transaction_delete(transaction: &mut Transaction, key: &CxxString) -> Result<()> {
     block_on(transaction.inner.delete(key.as_bytes().to_vec()))?;
     Ok(())
 }
 
-fn transaction_commit(transaction: &mut Transaction) -> Result<(), Error> {
+fn transaction_commit(transaction: &mut Transaction) -> Result<()> {
     block_on(transaction.inner.commit())?;
     Ok(())
 }
